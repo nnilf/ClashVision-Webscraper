@@ -7,6 +7,7 @@ from io import BytesIO
 import time
 import re
 from bs4 import Tag
+from pathlib import Path
 
 class WebScraper:
 
@@ -68,58 +69,67 @@ class WebScraper:
             return []
 
         soup = BeautifulSoup(response.text, "html.parser")
-
-        item_images = [[] for i in range(self._levels)]
     
         gallery = soup.find_all("img", attrs={"data-image-key": re.compile(f"{self._data_image_key}\d+(-[1-5])?\.png")})
 
         for item in range(self._levels):
             item_level = item + 1
+
             # Find all images for item
             item_images_filtered = self._filter_images(gallery, item_level)
 
             item_images_filtered = self._remove_duplicate_images(item_images_filtered)
 
+            if not(item_images_filtered):
+                print(f"❌ No {self._data_image_key} found!")
+
+            item_num = 1
+
             for figure in item_images_filtered:
+
+                path_join = os.path.join(self._BASE_DIR,f"{self._data_image_key}_{item_level}", f"{self._data_image_key}_{item_level}_{item_num}.png")
+
+                # check whether image already exists
+                if os.path.isfile(path_join):
+                    print(f"✅ Skipped {self._data_image_key}_{item_level}_{item_num} due to the image already existing")
+                    item_num += 1
+                    continue
+
                 if figure and "data-src" in figure.attrs:
                     img_url = figure["data-src"]
                     
                     img_url = img_url.split("/revision")[0]  # Remove unnecessary URL parts
                     
-                    item_images[item].append(img_url)
+                    self._download_image(img_url, item_level, item_num)
 
-        return item_images
+                item_num += 1
 
 
-    def _download_images(self, item_images):
+    def _download_image(self, img_url, level, item_num):
         """
         Downloads images from provided list of URLs.
 
         :param item_images: List of URLs for the function to download and store .
         :return: Downloads all images to given file directory, stored in seperate levels.
         """
-        level = 1
-        for item in item_images:
-            folder_path = os.path.join(self._BASE_DIR, f"{self._data_image_key}_{level}")
-            os.makedirs(folder_path, exist_ok=True)
+        folder_path = os.path.join(self._BASE_DIR, f"{self._data_image_key}_{level}")
+        os.makedirs(folder_path, exist_ok=True)
 
-            for images in range(len(item)):
-                try:
-                    response = requests.get(item[images], stream=True)
-                    response.raise_for_status()
+        try:
+            response = requests.get(img_url, stream=True)
+            response.raise_for_status()
 
-                    image = Image.open(BytesIO(response.content))
-                    image_format = image.format.lower()
-                    image_path = os.path.join(folder_path, f"{self._data_image_key}_{level}_{images+1}.{image_format}")
+            image = Image.open(BytesIO(response.content))
+            image_format = image.format.lower()
+            image_path = os.path.join(folder_path, f"{self._data_image_key}_{level}_{item_num}.{image_format}")
 
-                    image.save(image_path)
-                    print(f"✅ Saved: {image_path}")
+            image.save(image_path)
+            print(f"✅ Saved: {image_path}")
 
-                    time.sleep(1)  # Avoid hitting the server too fast
-                except Exception as e:
-                    print(f"❌ Failed to download {self._data_image_key}{level} image: {e}")
+            time.sleep(1)  # Avoid hitting the server too fast
+        except Exception as e:
+            print(f"❌ Failed to download {self._data_image_key}{level} image: {e}")
             
-            level += 1
 
 
 def scrape_item_images(item_df: pd.DataFrame):
@@ -133,15 +143,8 @@ def scrape_item_images(item_df: pd.DataFrame):
     for index, row in item_df.iterrows():
         web_scraper = WebScraper(row)
 
-        print(f"🔎 Fetching {web_scraper._data_image_key} images...")
-        item_images = web_scraper._fetch_item_images()
-
-        if item_images:
-            print("📥 Downloading images...")
-            web_scraper._download_images(item_images)
-            print(f"✅ All {web_scraper._data_image_key} images downloaded successfully!")
-        else:
-            print(f"❌ No {web_scraper._data_image_key} found!")
+        print(f"🔎 Fetching and donwloading {web_scraper._data_image_key} images...")
+        web_scraper._fetch_item_images()
 
     print(f"✅ All defensive building images downloaded successfully!")
     
