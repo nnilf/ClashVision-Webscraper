@@ -55,7 +55,7 @@ class WebScraper:
 
         soup = BeautifulSoup(response.text, "html.parser")
 
-        item_images = [[] for i in range(17)]
+        item_images = [[] for i in range(self._levels)]
     
         gallery = soup.find_all("img", attrs={"data-image-key": re.compile(f"{self._data_image_key}\d+(-[1-5])?\.png")})
 
@@ -102,7 +102,7 @@ class WebScraper:
             
             level += 1
 
-# Main execution
+# execute web scraping
 def scrape_item_images(item_df: pd.DataFrame):
     web_scraper = WebScraper(item_df)
 
