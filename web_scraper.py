@@ -15,6 +15,8 @@ class WebScraper:
         self._data_image_key = item_df["data-image-key"]
         self._WIKI_URL = item_df["URL"]
         self._levels = item_df["levels"]
+        self._regex = item_df['regex']
+        self._no_regex = not(self._regex)
 
         # create directory string for directory path to be created
         self._BASE_DIR = "items\\" + self._data_image_key
@@ -48,7 +50,10 @@ class WebScraper:
         :param level: Level that is wanted to be retrieved.
         :return: List of image elements that match that particular level.
         """
-        pattern = re.compile(f"{self._data_image_key}{level}(-[1-5])?\.png")
+        if self._no_regex: 
+            pattern = re.compile(f"{self._data_image_key}{level}(-[1-5])?\.png")
+        else:
+            pattern = re.compile(f"{self._data_image_key}{level}(-[1-5])?{self._regex}\.png")
 
         return [
             img for img in img_elements 
@@ -69,7 +74,14 @@ class WebScraper:
 
         soup = BeautifulSoup(response.text, "html.parser")
     
-        gallery = soup.find_all("img", attrs={"data-image-key": re.compile(f"{self._data_image_key}\d+(-[1-5])?\.png")})
+        if self._no_regex:   
+            gallery = soup.find_all("img", attrs={"data-image-key": re.compile(f"{self._data_image_key}\d+(-[1-5])?\.png")})
+        else:
+            gallery = soup.find_all("img", attrs={"data-image-key": re.compile(f"{self._data_image_key}\d+(-[1-5])?{self._regex}\.png")})
+
+        if not(gallery):
+            print(f"❌ Failed to find {self._data_image_key}!")
+            return
 
         for item in range(self._levels):
             item_level = item + 1
@@ -88,7 +100,10 @@ class WebScraper:
             for figure in item_images_filtered:
 
                 # create path for checking whether image exists
-                path_join = os.path.join(self._BASE_DIR,f"{self._data_image_key}_{item_level}", f"{self._data_image_key}_{item_level}_{item_num}.png")
+                if self._no_regex:
+                    path_join = os.path.join(self._BASE_DIR,f"{self._data_image_key}_{item_level}", f"{self._data_image_key}_{item_level}_{item_num}.png")
+                else:
+                    path_join = os.path.join(self._BASE_DIR,f"{self._data_image_key}_{item_level}{self._regex}", f"{self._data_image_key}_{item_level}_{item_num}{self._regex}.png")
 
                 # check whether image already exists
                 if os.path.isfile(path_join):
@@ -114,7 +129,10 @@ class WebScraper:
         :param item_images: List of URLs for the function to download and store .
         :return: Downloads all images to given file directory, stored in seperate levels.
         """
-        folder_path = os.path.join(self._BASE_DIR, f"{self._data_image_key}_{level}")
+        if self._no_regex:
+            folder_path = os.path.join(self._BASE_DIR, f"{self._data_image_key}_{level}")
+        else:
+            folder_path = os.path.join(self._BASE_DIR, f"{self._data_image_key}_{level}{self._regex}")
         os.makedirs(folder_path, exist_ok=True)
 
         try:
@@ -123,7 +141,10 @@ class WebScraper:
 
             image = Image.open(BytesIO(response.content))
             image_format = image.format.lower()
-            image_path = os.path.join(folder_path, f"{self._data_image_key}_{level}_{item_num}.{image_format}")
+            if not self._regex:   
+                image_path = os.path.join(folder_path, f"{self._data_image_key}_{level}_{item_num}.{image_format}")
+            else:
+                image_path = os.path.join(folder_path, f"{self._data_image_key}_{level}_{item_num}{self._regex}.{image_format}")
 
             image.save(image_path)
             print(f"✅ Saved: {image_path}")
@@ -145,7 +166,7 @@ def scrape_item_images(item_df: pd.DataFrame):
     for index, row in item_df.iterrows():
         web_scraper = WebScraper(row)
 
-        print(f"🔎 Fetching and downloading {web_scraper._data_image_key} images...")
+        print(f"🔎 Fetching and donwloading {web_scraper._data_image_key} images...")
         web_scraper._fetch_item_images()
 
     print(f"✅ All defensive building images downloaded successfully!")
