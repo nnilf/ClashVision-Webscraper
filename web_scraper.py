@@ -6,6 +6,7 @@ from PIL import Image
 from io import BytesIO
 import time
 import re
+from bs4 import Tag
 
 class WebScraper:
 
@@ -26,6 +27,15 @@ class WebScraper:
         self._HEADERS = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
+
+    def _remove_duplicate_images(self, img_elements):
+        """
+        Removes duplicate <img> elements based on their 'data-src' attribute using regex masks.
+        :param img_elements: List of BeautifulSoup <img> elements.
+        :return: List of unique <img> elements.
+        """
+        unique_imgs = list({img['data-image-key'].strip(): img for img in img_elements if isinstance(img, Tag) and img.has_attr('data-image-key')}.values())
+        return unique_imgs
 
     def _filter_images(self, img_elements, level):
         """Filters <img> elements to only include those with a matching data-image-key."""
@@ -53,6 +63,8 @@ class WebScraper:
             item_level = item + 1
             # Find all images for item
             item_images_filtered = self._filter_images(gallery, item_level)
+
+            item_images_filtered = self._remove_duplicate_images(item_images_filtered)
 
             for figure in item_images_filtered:
                 if figure and "data-src" in figure.attrs:
@@ -91,16 +103,16 @@ class WebScraper:
             level += 1
 
 # Main execution
-def execution(item_df: pd.DataFrame):
+def scrape_item_images(item_df: pd.DataFrame):
     web_scraper = WebScraper(item_df)
 
-    print("🔎 Fetching item images...")
+    print(f"🔎 Fetching {web_scraper._data_image_key} images...")
     item_images = web_scraper._fetch_item_images()
 
     if item_images:
         print("📥 Downloading images...")
         web_scraper._download_images(item_images)
-        print("✅ All item images downloaded successfully!")
+        print(f"✅ All {web_scraper._data_image_key} images downloaded successfully!")
     else:
-        print("❌ No images found!")
+        print(f"❌ No {web_scraper._data_image_key} found!")
     

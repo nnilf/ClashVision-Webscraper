@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-from web_scraper import execution
+from web_scraper import scrape_item_images
 
 archer_tower_data = {
     "data-image-key": "Archer_Tower",
@@ -20,6 +20,6 @@ Town_Hall = pd.DataFrame(town_hall_data, index=[0])
 
 # Main execution
 def main():
-    execution(Town_Hall)
+    scrape_item_images(Archer_Tower)
         
 main()
