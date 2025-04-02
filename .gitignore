@@ -1,2 +1,4 @@
 /items
 /__pycache__
+/test
+.vscode

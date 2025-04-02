@@ -12,16 +12,13 @@ class WebScraper:
 
     def __init__(self, item_df):
         # intialise df variables
-        self._data_image_key = item_df["data-image-key"][0]
-        self._URL = item_df["URL"][0]
-        self._levels = item_df["levels"][0]
+        self._data_image_key = item_df["data-image-key"]
+        self._WIKI_URL = item_df["URL"]
+        self._levels = item_df["levels"]
 
         self._BASE_DIR = "items\\" + self._data_image_key
 
         os.makedirs(self._BASE_DIR, exist_ok=True)
-
-        # URL of the wiki page
-        self._WIKI_URL = item_df["URL"][0]
 
         # Headers to mimic a real browser request
         self._HEADERS = {
@@ -104,15 +101,18 @@ class WebScraper:
 
 # execute web scraping
 def scrape_item_images(item_df: pd.DataFrame):
-    web_scraper = WebScraper(item_df)
+    for index, row in item_df.iterrows():
+        web_scraper = WebScraper(row)
 
-    print(f"🔎 Fetching {web_scraper._data_image_key} images...")
-    item_images = web_scraper._fetch_item_images()
+        print(f"🔎 Fetching {web_scraper._data_image_key} images...")
+        item_images = web_scraper._fetch_item_images()
 
-    if item_images:
-        print("📥 Downloading images...")
-        web_scraper._download_images(item_images)
-        print(f"✅ All {web_scraper._data_image_key} images downloaded successfully!")
-    else:
-        print(f"❌ No {web_scraper._data_image_key} found!")
+        if item_images:
+            print("📥 Downloading images...")
+            web_scraper._download_images(item_images)
+            print(f"✅ All {web_scraper._data_image_key} images downloaded successfully!")
+        else:
+            print(f"❌ No {web_scraper._data_image_key} found!")
+
+    print(f"✅ All defensive building images downloaded successfully!")
     
