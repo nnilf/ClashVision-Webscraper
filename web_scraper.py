@@ -63,9 +63,9 @@ class WebScraper:
 
     def _fetch_item_images(self):
         """
-        Fetches images of all levels of a particular building.
+        Fetches images of all levels of a particular building and filters it into levels.
 
-        :return: List of URLs for the images that needed to be downloaded and stored.
+        :return: A singular URL to the download_image function for it to be downloaded and saved to the directory
         """
         response = requests.get(self._WIKI_URL, headers=self._HEADERS)
         if response.status_code != 200:
@@ -126,8 +126,10 @@ class WebScraper:
         """
         Downloads images from provided list of URLs.
 
-        :param item_images: List of URLs for the function to download and store .
-        :return: Downloads all images to given file directory, stored in seperate levels.
+        :param img_url: single URL of an image.
+        :param level: the level of the given image
+        :param item_num: the number of the current variation of the item
+        :return: downloads the image to its file directory
         """
         if self._no_regex:
             folder_path = os.path.join(self._BASE_DIR, f"{self._data_image_key}_{level}")
