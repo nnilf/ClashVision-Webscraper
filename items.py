@@ -21,7 +21,5 @@ Town_Hall = pd.DataFrame(town_hall_data, index=[0])
 # Main execution
 def main():
     execution(Town_Hall)
-
-    print("✅ Finished")
         
 main()
