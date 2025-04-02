@@ -32,7 +32,7 @@ class WebScraper:
 
     def _remove_duplicate_images(self, img_elements):
         """
-        Removes duplicate image elements based on their 'data-src' attribute using regex masks.
+        Removes duplicate image elements based on their 'data-image-key' attribute using regex masks.
 
         :param img_elements: List of image elements.
         :return: List of unique image elements.
@@ -159,7 +159,7 @@ class WebScraper:
 
 def scrape_item_images(item_df: pd.DataFrame):
     """
-    Executes the higher level connection of web scraping functions
+    Executes the higher level function of web scraping and downloads
 
     :param item_df: df of all the items in which web scraping needs to be applied on,
     containing: URL, data-image-key and levels
