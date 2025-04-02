@@ -7,7 +7,6 @@ from io import BytesIO
 import time
 import re
 from bs4 import Tag
-from pathlib import Path
 
 class WebScraper:
 
@@ -80,6 +79,7 @@ class WebScraper:
 
             item_images_filtered = self._remove_duplicate_images(item_images_filtered)
 
+            # check filtered items list isn't empty
             if not(item_images_filtered):
                 print(f"❌ No {self._data_image_key} found!")
 
@@ -87,11 +87,13 @@ class WebScraper:
 
             for figure in item_images_filtered:
 
+                # create path for checking whether image exists
                 path_join = os.path.join(self._BASE_DIR,f"{self._data_image_key}_{item_level}", f"{self._data_image_key}_{item_level}_{item_num}.png")
 
                 # check whether image already exists
                 if os.path.isfile(path_join):
                     print(f"✅ Skipped {self._data_image_key}_{item_level}_{item_num} due to the image already existing")
+                    # increment item number and then skip over item
                     item_num += 1
                     continue
 
@@ -128,7 +130,7 @@ class WebScraper:
 
             time.sleep(1)  # Avoid hitting the server too fast
         except Exception as e:
-            print(f"❌ Failed to download {self._data_image_key}{level} image: {e}")
+            print(f"❌ Failed to download {self._data_image_key}_{level}_{item_num} image: {e}")
             
 
 
@@ -143,7 +145,7 @@ def scrape_item_images(item_df: pd.DataFrame):
     for index, row in item_df.iterrows():
         web_scraper = WebScraper(row)
 
-        print(f"🔎 Fetching and donwloading {web_scraper._data_image_key} images...")
+        print(f"🔎 Fetching and downloading {web_scraper._data_image_key} images...")
         web_scraper._fetch_item_images()
 
     print(f"✅ All defensive building images downloaded successfully!")

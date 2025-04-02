@@ -10,6 +10,6 @@ town_hall_df = pd.DataFrame(town_hall_data, columns=["data-image-key", "levels",
 
 # Main execution
 def execute_web_scraper():
-    scrape_item_images(town_hall_df)
+    scrape_item_images(defenisve_df)
         
 execute_web_scraper()
