@@ -25,7 +25,7 @@ This project contains two major components:
 - Uses `requests` and `BeautifulSoup` to navigate and parse Wiki pages.
 - Filters relevant images using `data-image-key` and level-based regex.
 - Downloads images into organized folders.
-- Optionally scrapes accompanying stats tables.
+- Scrapes accompanying stats tables.
 
 ### AI Detection Pipeline
 - Powered by YOLOv5/YOLOv8.
