@@ -6,7 +6,8 @@ from PIL import Image
 from io import BytesIO
 import time
 import re
-from bs4 import Tag
+from utils import filter_images, remove_duplicate_images
+from image_handler import download_image
 
 class WebScraper:
 
@@ -27,34 +28,6 @@ class WebScraper:
         self._HEADERS = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
-
-
-    def _remove_duplicate_images(self, img_elements):
-        """
-        Removes duplicate image elements based on their 'data-image-key' attribute using regex masks.
-
-        :param img_elements: List of image elements.
-        :return: List of unique image elements.
-        """
-        unique_imgs = list({img['data-image-key'].strip(): img for img in img_elements if isinstance(img, Tag) and img.has_attr('data-image-key')}.values())
-
-        return unique_imgs
-    
-
-    def _filter_images(self, img_elements, level):
-        """
-        Filters <img> elements to only include those images from that particular building level.
-
-        :param img_elements: List of image elements.
-        :param level: Level that is wanted to be retrieved.
-        :return: List of image elements that match that particular level.
-        """
-        pattern = re.compile(f"{self._data_image_key}{level}(-[1-5])?{self._regex}\.png")
-
-        return [
-            img for img in img_elements 
-            if img.has_attr("data-image-key") and pattern.match(img["data-image-key"])
-        ]
 
 
     def _fetch_item_images(self):
@@ -80,9 +53,9 @@ class WebScraper:
             item_level = item + 1
 
             # Find all images for item
-            item_images_filtered = self._filter_images(gallery, item_level)
+            item_images_filtered = filter_images(gallery, item_level, self._data_image_key, self._regex)
 
-            item_images_filtered = self._remove_duplicate_images(item_images_filtered)
+            item_images_filtered = remove_duplicate_images(item_images_filtered)
 
             # check filtered items list isn't empty
             if not(item_images_filtered):
@@ -107,39 +80,10 @@ class WebScraper:
                     
                     img_url = img_url.split("/revision")[0]  # Remove unnecessary URL parts
                     
-                    self._download_image(img_url, item_level, item_num)
+                    download_image(img_url, item_level, item_num, self._BASE_DIR, self._data_image_key, self._regex)
 
                 item_num += 1
-
-
-    def _download_image(self, img_url, level, item_num):
-        """
-        Downloads images from provided list of URLs.
-
-        :param img_url: single URL of an image.
-        :param level: the level of the given image
-        :param item_num: the number of the current variation of the item
-        :return: downloads the image to its file directory
-        """
-        folder_path = os.path.join(self._BASE_DIR, f"{self._data_image_key}_{level}{self._regex}")
-        os.makedirs(folder_path, exist_ok=True)
-
-        try:
-            response = requests.get(img_url, stream=True)
-            response.raise_for_status()
-
-            image = Image.open(BytesIO(response.content))
-            image_format = image.format.lower() 
-            image_path = os.path.join(folder_path, f"{self._data_image_key}_{level}_{item_num}{self._regex}.{image_format}")
-
-            image.save(image_path)
-            print(f"✅ Saved: {image_path}")
-
-            time.sleep(1)  # Avoid hitting the server too fast
-        except Exception as e:
-            print(f"❌ Failed to download {self._data_image_key}_{level}_{item_num} image: {e}")
             
-
 
 def scrape_item_images(item_df: pd.DataFrame):
     """
@@ -152,7 +96,7 @@ def scrape_item_images(item_df: pd.DataFrame):
     for index, row in item_df.iterrows():
         web_scraper = WebScraper(row)
 
-        print(f"🔎 Fetching and downloading {web_scraper._data_image_key} images...")
+        print(f"🔎 Fetching and downloading {web_scraper._data_image_key}{web_scraper._regex} images...")
         web_scraper._fetch_item_images()
 
     print(f"✅ All defensive building images downloaded successfully!")
