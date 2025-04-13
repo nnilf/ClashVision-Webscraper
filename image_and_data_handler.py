@@ -4,7 +4,7 @@ import requests
 from io import BytesIO
 import time
 
-def download_image(img_url, level, item_num, BASE_DIR, data_image_key, regex):
+def download_image_and_data(img_url, level, item_num, BASE_DIR, data_image_key, regex):
     """
     Downloads images from provided list of URLs.
 
@@ -13,7 +13,8 @@ def download_image(img_url, level, item_num, BASE_DIR, data_image_key, regex):
     :param item_num: the number of the current variation of the item
     :param BASE_DIR: base directory for paths to download images to
     :param data_image_key: data image key for the current building
-    :param regex: any extra regex required for definin specific building types
+    :param regex: any extra regex required for defining specific building types
+    :param data_df: df containing level, damage per second, damage per shot, hitpoints
     :return: downloads the image to its file directory
     """
     folder_path = os.path.join(BASE_DIR, f"{data_image_key}_{level}{regex}")

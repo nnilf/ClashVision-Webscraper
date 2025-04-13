@@ -2,12 +2,10 @@ import pandas as pd
 import os
 import requests
 from bs4 import BeautifulSoup
-from PIL import Image
-from io import BytesIO
-import time
 import re
-from utils import filter_images, remove_duplicate_images
-from image_handler import download_image
+from utils import filter_images_for_level, remove_duplicate_images
+from image_and_data_handler import download_image_and_data
+from parse_damage_table import parse_damage_table
 
 class WebScraper:
 
@@ -15,7 +13,7 @@ class WebScraper:
         # intialise df variables
         self._data_image_key = item_df["data-image-key"]
         self._WIKI_URL = item_df["URL"]
-        self._levels = item_df["levels"]
+        self.levels = 0
         self._regex = item_df['regex']
 
         # create directory string for directory path to be created
@@ -30,7 +28,7 @@ class WebScraper:
         }
 
 
-    def _fetch_item_images(self):
+    def _fetch_item_images_and_data(self):
         """
         Fetches images of all levels of a particular building and filters it into levels.
 
@@ -44,16 +42,38 @@ class WebScraper:
         soup = BeautifulSoup(response.text, "html.parser")
     
         gallery = soup.find_all("img", attrs={"data-image-key": re.compile(f"{self._data_image_key}\d+(-[1-5])?{self._regex}\.png")})
+        tables = soup.find_all("table", class_="wikitable floatheader row-highlight")
+
+        for table in tables:
+            level = table.find_all("tr")[0].text.strip()[:5]
+            if level == "Level":
+
+                df_path =  os.path.join(self._BASE_DIR, f"{self._data_image_key}_data.csv")
+
+                if os.path.isfile(df_path):
+                    print(f"✅ Skipped {self._data_image_key} data, due to it already existing")
+                    break
+
+                else:
+                    df = parse_damage_table(table)
+                    max_level = df["Level"][len(df)-1]
+                    self.levels = int(max_level)
+                    df.to_csv(df_path, index=False)
+                    print(f"✅ Saved: {self._data_image_key} data")
+                    break
+        
+        if not level:
+            print(f'❌ Failed to find data table for {self._data_image_key}!')
 
         if not(gallery):
             print(f"❌ Failed to find {self._data_image_key}!")
             return
 
-        for item in range(self._levels):
+        for item in range(self.levels):
             item_level = item + 1
 
             # Find all images for item
-            item_images_filtered = filter_images(gallery, item_level, self._data_image_key, self._regex)
+            item_images_filtered = filter_images_for_level(gallery, item_level, self._data_image_key, self._regex)
 
             item_images_filtered = remove_duplicate_images(item_images_filtered)
 
@@ -80,7 +100,10 @@ class WebScraper:
                     
                     img_url = img_url.split("/revision")[0]  # Remove unnecessary URL parts
                     
-                    download_image(img_url, item_level, item_num, self._BASE_DIR, self._data_image_key, self._regex)
+                    df_data_mask = df["Level"] == item_level
+                    df_level = df[df_data_mask].reset_index(drop=True)
+
+                    download_image_and_data(img_url, item_level, item_num, self._BASE_DIR, self._data_image_key, self._regex, df_level)
 
                 item_num += 1
             
@@ -97,7 +120,7 @@ def scrape_item_images(item_df: pd.DataFrame):
         web_scraper = WebScraper(row)
 
         print(f"🔎 Fetching and downloading {web_scraper._data_image_key}{web_scraper._regex} images...")
-        web_scraper._fetch_item_images()
+        web_scraper._fetch_item_images_and_data()
 
     print(f"✅ All defensive building images downloaded successfully!")
     

@@ -1,12 +1,14 @@
 import re
 from bs4 import Tag
 
-def filter_images(img_elements, level, data_image_key, regex):
+def filter_images_for_level(img_elements, level, data_image_key, regex):
     """
     Filters <img> elements to only include those images from that particular building level.
 
     :param img_elements: List of image elements.
     :param level: Level that is wanted to be retrieved.
+    :param data_image_key: data image key for the current building
+    :param regex: any extra regex required for defining specific building types
     :return: List of image elements that match that particular level.
     """
     pattern = re.compile(f"{data_image_key}{level}(-[1-5])?{regex}\.png")
