@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 import re
 from utils import filter_images_for_level, remove_duplicate_images
 from image_and_data_handler import download_image_and_data
-from parse_damage_table import parse_damage_table
+from parse_damage_table import get_building_stats
 
 class WebScraper:
 
@@ -38,6 +38,19 @@ class WebScraper:
         if response.status_code != 200:
             print("Failed to fetch the Wiki page.")
             return []
+        
+        archer_stats = get_building_stats("Archer_Tower")
+        cannon_stats = get_building_stats("Cannon")
+        mortar_stats = get_building_stats("Mortar")
+        air_defense_stats = get_building_stats("Air_Defense")
+        wizard_tower_stats = get_building_stats("Wizard_Tower")
+        Air_Sweeper_stats = get_building_stats("Air_Sweeper")
+        Hidden_Tesla_stats = get_building_stats("Hidden_Tesla")
+        Bomb_Tower_stats = get_building_stats("Bomb_Tower")
+
+        # Now you'll get properly named tables:
+        print(archer_stats.keys()) 
+        # Output: ['Home Village Stats', 'Fast Attack', 'Long Attack']
 
         soup = BeautifulSoup(response.text, "html.parser")
     
@@ -55,7 +68,7 @@ class WebScraper:
                     break
 
                 else:
-                    df = parse_damage_table(table)
+                    df = get_building_stats(table)
                     max_level = df["Level"][len(df)-1]
                     self.levels = int(max_level)
                     df.to_csv(df_path, index=False)

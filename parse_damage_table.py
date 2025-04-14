@@ -1,83 +1,218 @@
 from bs4 import BeautifulSoup
+import requests
 import pandas as pd
 import re
+from typing import Dict, Union
 
-def parse_damage_table(table: BeautifulSoup) -> pd.DataFrame:
+# Mapping of all defensive buildings and their attack modes
+BUILDING_MODES = {
+    'archer_tower': ['Fast Attack', 'Long Attack'],
+    'cannon': ['Burst Mode'],
+    'mortar': ['Splash Attack'],
+    'inferno_tower': ['Single Target', 'Multi Target'],
+    'x-bow': ['Ground Mode', 'Air Mode'],
+    'eagle_artillery': ['Activated', 'Inactive'],
+    'scattershot': ['Normal Attack', 'Spread Attack'],
+    'builder_hut': ['Normal Attack', 'Battle Pop'],
+    'multi-mortar': ['Standard Mode', 'Burst Mode'],
+    'bomb_tower': ['Normal Attack', 'Air Bombs'],
+    'tesla': ['Normal Attack', 'Rapid Fire']
+}
+
+
+def get_building_stats(building_name: str) -> Dict[str, pd.DataFrame]:
     """
-    Parses a Clash of Clans building stats table from the wiki and returns a DataFrame.
-    Handles different building types (defenses, resources, etc.) with varying stats.
+    Get complete statistics for any defensive building including all attack modes.
+    Handles both standard (/Home_Village) and special URL structures.
     
     Args:
-        table: BeautifulSoup object containing the HTML table to parse
+        building_name: Building name as it appears in URL (e.g., 'Mortar', 'Archer_Tower')
         
     Returns:
-        pd.DataFrame: DataFrame containing all available stats for each building level
+        Dictionary with keys: 
+        - 'Main Stats' (always present)
+        - Other mode-specific keys when applicable
     """
-    # Find all rows, skip header rows which don't contain level data
-    rows = table.find_all("tr")
-    data_rows = [row for row in rows if row.find("td") and row.find("td").text.strip().isdigit()]
+    # First try the standard Home Village URL
+    url = f"https://clashofclans.fandom.com/wiki/{building_name}/Home_Village"
+    response = requests.get(url, timeout=10)
     
-    if not data_rows:
+    # If that fails, try the direct building URL (for Mortar and others)
+    if response.status_code != 200:
+        url = f"https://clashofclans.fandom.com/wiki/{building_name}"
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            raise ValueError(f"Failed to fetch data for {building_name} at both URLs")
+    
+    soup = BeautifulSoup(response.content, 'html.parser')
+    building_key = building_name.lower()
+    
+    # Special case handlers
+    if building_key == 'mortar':
+        return handle_mortar(soup)
+    elif building_key == 'bomb_tower':
+        return handle_bomb_tower(soup)
+    
+    return handle_standard_building(soup, building_key)
+
+
+def handle_mortar(soup: BeautifulSoup) -> Dict[str, pd.DataFrame]:
+    """Special handler for Mortar's unique page structure"""
+    results = {}
+    
+    # Main stats table - Mortar has it in the first wikitable
+    main_table = soup.find('table', {'class': 'wikitable'})
+    if main_table:
+        df = parse_wikitable(main_table)
+        if not df.empty:
+            results['Main Stats'] = df
+    
+    # Splash damage table - found after the Splash Damage heading
+    for h2 in soup.find_all('h2'):
+        if 'splash damage' in h2.get_text().lower():
+            splash_table = h2.find_next('table', class_='wikitable')
+            if splash_table:
+                df = parse_wikitable(splash_table)
+                if not df.empty:
+                    results['Splash Attack'] = df
+            break
+    
+    return results
+
+
+def handle_bomb_tower(soup: BeautifulSoup) -> Dict[str, pd.DataFrame]:
+    """Special handler for Bomb Tower's air bombs"""
+    results = {}
+    
+    # Main stats table
+    main_table = soup.find('table', {'class': 'wikitable'})
+    if main_table:
+        df = parse_wikitable(main_table)
+        if not df.empty:
+            results['Main Stats'] = df
+    
+    # Air bombs table
+    for h3 in soup.find_all('h3'):
+        if 'air bombs' in h3.get_text().lower():
+            air_table = h3.find_next('table')
+            if air_table:
+                df = parse_wikitable(air_table)
+                if not df.empty:
+                    results['Air Bombs'] = df
+            break
+    
+    return results
+
+
+def handle_standard_building(soup: BeautifulSoup, building_key: str) -> Dict[str, pd.DataFrame]:
+    """Handler for most buildings with standard layout"""
+    results = {}
+    tables = soup.find_all('table', class_='wikitable')
+    expected_modes = BUILDING_MODES.get(building_key, [])
+    
+    for table in tables:
+        if len(table.find_all('tr')) < 3:  # Skip small tables
+            continue
+            
+        table_name = identify_table(table, building_key)
+        df = parse_wikitable(table)
+        
+        if not df.empty:
+            if table_name == 'Main Stats':
+                if 'Main Stats' not in results:
+                    results['Main Stats'] = df
+            elif table_name in expected_modes:
+                results[table_name] = df
+    
+    return results
+
+
+def identify_table(table, building_key: str) -> str:
+    """Identify table type based on context and building type"""
+    prev_elements = table.find_previous(['h2', 'h3', 'h4', 'p', 'b'])
+    prev_text = prev_elements.get_text().lower() if prev_elements else ""
+    
+    # Check for known modes for this building
+    for mode in BUILDING_MODES.get(building_key, []):
+        if mode.lower() in prev_text:
+            return mode
+    
+    # Special text pattern matching
+    if 'burst' in prev_text and building_key == 'cannon':
+        return 'Burst Mode'
+    if 'splash' in prev_text and building_key == 'mortar':
+        return 'Splash Attack'
+    if 'air bomb' in prev_text and building_key == 'bomb_tower':
+        return 'Air Bombs'
+    
+    return 'Main Stats'
+
+
+def parse_wikitable(table) -> pd.DataFrame:
+    """Robust wikitable parser with comprehensive cleaning"""
+    headers = []
+    for th in table.find_all('th'):
+        header = clean_text(th.get_text())
+        if header and header not in headers:
+            headers.append(header)
+    
+    rows = []
+    for row in table.find_all('tr')[1:]:  # Skip header row
+        cells = row.find_all('td')
+        if not cells:
+            continue
+            
+        row_data = []
+        for cell in cells:
+            cell_text = ' '.join(line.strip() for line in cell.get_text().split('\n') if line.strip())
+            cleaned = clean_cell(cell_text)
+            row_data.append(cleaned)
+        
+        if len(row_data) == len(headers):
+            rows.append(row_data)
+        elif len(row_data) > len(headers):
+            rows.append(row_data[:len(headers)])
+    
+    if not headers or not rows:
         return pd.DataFrame()
     
-    # Extract column headers from th elements
-    headers = []
-    header_row = rows[0]
-    for th in header_row.find_all(["th", "td"]):
-        header_text = th.text.strip()
-        # Clean up header text
-        header_text = re.sub(r'\[.*?\]', '', header_text)  # Remove any [notes]
-        header_text = header_text.replace('\n', ' ').replace('\t', '')
-        header_text = ' '.join(header_text.split())  # Collapse multiple spaces
-        if header_text:
-            headers.append(header_text)
+    df = pd.DataFrame(rows, columns=headers)
     
-    # For each data row, extract the values
-    data = []
-    for row in data_rows:
-        cols = row.find_all("td")
-        row_data = []
-        
-        for i, col in enumerate(cols):
-            text = col.text.strip()
-            text = re.sub(r'\[.*?\]', '', text)  # Remove any [notes]
-            text = text.replace('\n', ' ').replace('\t', '')
-            text = ' '.join(text.split())  # Collapse multiple spaces
-            
-            # Try to convert to number if possible
-            if text.replace(',', '').replace('.', '').isdigit():
-                text = text.replace(',', '')
-                try:
-                    if '.' in text:
-                        text = float(text)
-                    else:
-                        text = int(text)
-                except ValueError:
-                    pass
-            elif text.endswith('%'):
-                try:
-                    text = float(text[:-1]) / 100
-                except ValueError:
-                    pass
-            
-            row_data.append(text)
-        
-        # Pad row with None if it has fewer columns than headers
-        if len(row_data) < len(headers):
-            row_data += [None] * (len(headers) - len(row_data))
-        
-        data.append(row_data)
+    # Standardize columns
+    df.columns = [clean_text(col) for col in df.columns]
     
-    # Create DataFrame
-    df = pd.DataFrame(data, columns=headers[:len(data[0])])
-    
-    # Clean up column names
-    df.columns = df.columns.str.strip()
-    
-    # Ensure 'Level' column is first if it exists
-    if 'Level' in df.columns and df.columns[0] != 'Level':
-        cols = df.columns.tolist()
-        cols.insert(0, cols.pop(cols.index('Level')))
+    # Make Level first column if exists
+    level_cols = [col for col in df.columns if 'level' in col.lower()]
+    if level_cols:
+        df = df.rename(columns={level_cols[0]: 'Level'})
+        cols = ['Level'] + [col for col in df.columns if col != 'Level']
         df = df[cols]
     
     return df
+
+
+def clean_text(text: str) -> str:
+    """Clean text by removing wiki formatting and special characters"""
+    text = re.sub(r'\[.*?\]|Edit|\.|\u200e|\u202f', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+
+def clean_cell(text: str) -> Union[str, float, int, None]:
+    """Clean and convert cell values to appropriate types"""
+    text = clean_text(text)
+    
+    if text.replace(',', '').replace('.', '').isdigit():
+        text = text.replace(',', '')
+        return float(text) if '.' in text else int(text)
+    
+    if text.endswith('%'):
+        try:
+            return float(text[:-1]) / 100
+        except ValueError:
+            pass
+    
+    if text.lower() in ('n/a', '?', '-', '', 'none'):
+        return None
+    
+    return text
