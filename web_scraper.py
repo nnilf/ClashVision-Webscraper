@@ -40,13 +40,15 @@ class WebScraper:
             return []
         
         archer_stats = get_building_stats("Archer_Tower")
-        cannon_stats = get_building_stats("Cannon")
-        mortar_stats = get_building_stats("Mortar")
-        air_defense_stats = get_building_stats("Air_Defense")
-        wizard_tower_stats = get_building_stats("Wizard_Tower")
-        Air_Sweeper_stats = get_building_stats("Air_Sweeper")
-        Hidden_Tesla_stats = get_building_stats("Hidden_Tesla")
-        Bomb_Tower_stats = get_building_stats("Bomb_Tower")
+        archer_stats = get_building_stats("Gold_Mine")
+
+        # cannon_stats = get_building_stats("Cannon")
+        # mortar_stats = get_building_stats("Mortar")
+        # air_defense_stats = get_building_stats("Air_Defense")
+        # wizard_tower_stats = get_building_stats("Wizard_Tower")
+        # Air_Sweeper_stats = get_building_stats("Air_Sweeper")
+        # Hidden_Tesla_stats = get_building_stats("Hidden_Tesla")
+        # Bomb_Tower_stats = get_building_stats("Bomb_Tower")
 
         # Now you'll get properly named tables:
         print(archer_stats.keys()) 
