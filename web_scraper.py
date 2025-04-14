@@ -99,11 +99,8 @@ class WebScraper:
                     img_url = figure["data-src"]
                     
                     img_url = img_url.split("/revision")[0]  # Remove unnecessary URL parts
-                    
-                    df_data_mask = df["Level"] == item_level
-                    df_level = df[df_data_mask].reset_index(drop=True)
 
-                    download_image_and_data(img_url, item_level, item_num, self._BASE_DIR, self._data_image_key, self._regex, df_level)
+                    download_image_and_data(img_url, item_level, item_num, self._BASE_DIR, self._data_image_key, self._regex)
 
                 item_num += 1
             
