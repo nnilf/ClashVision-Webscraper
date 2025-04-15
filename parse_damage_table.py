@@ -1,8 +1,7 @@
 from bs4 import BeautifulSoup
-import requests
 import pandas as pd
 import re
-from typing import Dict, Union
+from typing import Dict
 
 # Mapping of all defensive buildings and their attack modes
 BUILDING_MODES = {
@@ -20,31 +19,21 @@ BUILDING_MODES = {
 }
 
 
-def get_building_stats(building_name: str) -> Dict[str, pd.DataFrame]:
+def get_building_stats(building_name: str, soup: BeautifulSoup) -> Dict[str, pd.DataFrame]:
     """
     Get complete statistics for any defensive building including all attack modes.
     Handles both standard (/Home_Village) and special URL structures.
     
     Args:
         building_name: Building name as it appears in URL (e.g., 'Mortar', 'Archer_Tower')
+        soup: Soup element containing entire HTML page
         
     Returns:
         Dictionary with keys: 
         - 'Main Stats' (always present)
         - Other mode-specific keys when applicable
     """
-    # First try the standard Home Village URL
-    url = f"https://clashofclans.fandom.com/wiki/{building_name}/Home_Village"
-    response = requests.get(url, timeout=10)
     
-    # If that fails, try the direct building URL (for Mortar and others)
-    if response.status_code != 200:
-        url = f"https://clashofclans.fandom.com/wiki/{building_name}"
-        response = requests.get(url, timeout=10)
-        if response.status_code != 200:
-            raise ValueError(f"Failed to fetch data for {building_name} at both URLs")
-    
-    soup = BeautifulSoup(response.content, 'html.parser')
     building_key = building_name.lower()
     
     # Special case handlers
@@ -198,7 +187,7 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
-def clean_cell(text: str) -> Union[str, float, int, None]:
+def clean_cell(text: str):
     """Clean and convert cell values to appropriate types"""
     text = clean_text(text)
     

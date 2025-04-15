@@ -6,15 +6,17 @@ import re
 from utils import filter_images_for_level, remove_duplicate_images
 from image_and_data_handler import download_image_and_data
 from parse_damage_table import get_building_stats
+from error_handler import ErrorHandler
 
 class WebScraper:
 
-    def __init__(self, item_df):
+    def __init__(self, item_df, error_handler):
         # intialise df variables
         self._data_image_key = item_df["data-image-key"]
         self._WIKI_URL = item_df["URL"]
         self.levels = 0
         self._regex = item_df['regex']
+        self.error_handler = error_handler
 
         # create directory string for directory path to be created
         self._BASE_DIR = "items\\" + self._data_image_key
@@ -36,53 +38,34 @@ class WebScraper:
         """
         response = requests.get(self._WIKI_URL, headers=self._HEADERS)
         if response.status_code != 200:
-            print("Failed to fetch the Wiki page.")
-            return []
-        
-        archer_stats = get_building_stats("Archer_Tower")
-        archer_stats = get_building_stats("Gold_Mine")
-
-        # cannon_stats = get_building_stats("Cannon")
-        # mortar_stats = get_building_stats("Mortar")
-        # air_defense_stats = get_building_stats("Air_Defense")
-        # wizard_tower_stats = get_building_stats("Wizard_Tower")
-        # Air_Sweeper_stats = get_building_stats("Air_Sweeper")
-        # Hidden_Tesla_stats = get_building_stats("Hidden_Tesla")
-        # Bomb_Tower_stats = get_building_stats("Bomb_Tower")
-
-        # Now you'll get properly named tables:
-        print(archer_stats.keys()) 
-        # Output: ['Home Village Stats', 'Fast Attack', 'Long Attack']
+            raise ValueError(f"Failed to find URL '{self._WIKI_URL}'")
 
         soup = BeautifulSoup(response.text, "html.parser")
-    
-        gallery = soup.find_all("img", attrs={"data-image-key": re.compile(f"{self._data_image_key}\d+(-[1-5])?{self._regex}\.png")})
-        tables = soup.find_all("table", class_="wikitable floatheader row-highlight")
 
-        for table in tables:
-            level = table.find_all("tr")[0].text.strip()[:5]
-            if level == "Level":
+        df_path =  os.path.join(self._BASE_DIR, f"{self._data_image_key}_data.csv")
 
-                df_path =  os.path.join(self._BASE_DIR, f"{self._data_image_key}_data.csv")
-
-                if os.path.isfile(df_path):
-                    print(f"✅ Skipped {self._data_image_key} data, due to it already existing")
-                    break
-
-                else:
-                    df = get_building_stats(table)
+        if os.path.isfile(df_path):
+            print(f"✅ Skipped {self._data_image_key} data, due to it already existing")
+        else:
+            stats = get_building_stats(self._data_image_key, soup)
+            for key in stats.keys():
+                if key == "Main Stats":
+                    df = stats[key]
                     max_level = df["Level"][len(df)-1]
                     self.levels = int(max_level)
                     df.to_csv(df_path, index=False)
-                    print(f"✅ Saved: {self._data_image_key} data")
-                    break
-        
-        if not level:
-            print(f'❌ Failed to find data table for {self._data_image_key}!')
+                    print(f"✅ Saved: {df_path}")
+                else:
+                    key_text = key.replace(" ", "_")
+                    df_path = os.path.join(self._BASE_DIR, f"{self._data_image_key}_{key_text}_data.csv")
+                    df.to_csv(df_path, index=False)
+                    print(f"✅ Saved: {df_path}")
+
+
+        gallery = soup.find_all("img", attrs={"data-image-key": re.compile(f"{self._data_image_key}\d+(-[1-5])?{self._regex}\.png")})
 
         if not(gallery):
-            print(f"❌ Failed to find {self._data_image_key}!")
-            return
+            raise ValueError(f"Failed to find Images for '{self._data_image_key}'")
 
         for item in range(self.levels):
             item_level = item + 1
@@ -94,7 +77,7 @@ class WebScraper:
 
             # check filtered items list isn't empty
             if not(item_images_filtered):
-                print(f"❌ No {self._data_image_key} found!")
+                self.error_handler.add_error(f"Filtered list is empty for '{self._data_image_key}' level {item_level}")
 
             item_num = 1
 
@@ -129,10 +112,13 @@ def scrape_item_images(item_df: pd.DataFrame):
     :returns: Directory saved with all images of items from item_df
     """
     for index, row in item_df.iterrows():
-        web_scraper = WebScraper(row)
+        error_handler = ErrorHandler()
+
+        web_scraper = WebScraper(row, error_handler)
 
         print(f"🔎 Fetching and downloading {web_scraper._data_image_key}{web_scraper._regex} images...")
         web_scraper._fetch_item_images_and_data()
 
+    error_handler.save_errors()
     print(f"✅ All defensive building images downloaded successfully!")
     
