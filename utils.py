@@ -1,5 +1,6 @@
 import re
 from bs4 import Tag
+import pandas as pd
 
 def filter_images_for_level(img_elements, level, data_image_key, regex):
     """
@@ -29,3 +30,9 @@ def remove_duplicate_images(img_elements):
     unique_imgs = list({img['data-image-key'].strip(): img for img in img_elements if isinstance(img, Tag) and img.has_attr('data-image-key')}.values())
 
     return unique_imgs
+
+
+def get_max_level(df: pd.DataFrame) -> int:
+    """Returns the highest level of a building using stats table dataframe"""
+    max_level = df["Level"][len(df)-1]
+    return int(max_level)

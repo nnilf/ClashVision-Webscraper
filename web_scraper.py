@@ -3,7 +3,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 import re
-from utils import filter_images_for_level, remove_duplicate_images
+from utils import filter_images_for_level, remove_duplicate_images, get_max_level
 from image_and_data_handler import download_image_and_data
 from parse_damage_table import get_building_stats
 from error_handler import ErrorHandler
@@ -46,13 +46,14 @@ class WebScraper:
 
         if os.path.isfile(df_path):
             print(f"✅ Skipped {self._data_image_key} data, due to it already existing")
+            df = pd.read_csv(df_path)
+            self.levels = get_max_level(df)
         else:
             stats = get_building_stats(self._data_image_key, soup)
             for key in stats.keys():
                 if key == "Main Stats":
                     df = stats[key]
-                    max_level = df["Level"][len(df)-1]
-                    self.levels = int(max_level)
+                    self.levels = get_max_level(df)
                     df.to_csv(df_path, index=False)
                     print(f"✅ Saved: {df_path}")
                 else:
