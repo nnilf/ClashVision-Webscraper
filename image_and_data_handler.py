@@ -17,7 +17,7 @@ def download_image_and_data(img_url, level, item_num, BASE_DIR, data_image_key, 
     :param data_df: df containing level, damage per second, damage per shot, hitpoints
     :return: downloads the image to its file directory
     """
-    folder_path = os.path.join(BASE_DIR, f"{data_image_key}_{level}{regex}")
+    folder_path = os.path.join(BASE_DIR,f"{data_image_key}_{regex}")
     os.makedirs(folder_path, exist_ok=True)
 
     try:

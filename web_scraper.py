@@ -92,7 +92,7 @@ class WebScraper:
                 for figure in item_images_filtered:
 
                     # create path for checking whether image exists
-                    path_join = os.path.join(self._BASE_DIR,f"{self._data_image_key}_{item_level}{self._regex}", f"{self._data_image_key}_{item_level}_{item_num}{self._regex}.png")
+                    path_join = os.path.join(self._BASE_DIR,f"{self._data_image_key}_{self._regex}", f"{self._data_image_key}_{item_level}_{item_num}{self._regex}.png")
 
                     # check whether image already exists
                     if os.path.isfile(path_join):
