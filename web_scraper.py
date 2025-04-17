@@ -7,6 +7,7 @@ from utils import filter_images_for_level, remove_duplicate_images, get_max_leve
 from image_and_data_handler import download_image_and_data
 from parse_damage_table import get_building_stats
 from error_handler import ErrorHandler
+from Image_varities import find_image_varities
 
 class WebScraper:
 
@@ -15,7 +16,7 @@ class WebScraper:
         self._data_image_key = item_df["data-image-key"]
         self._WIKI_URL = item_df["URL"]
         self.levels = 0
-        self._regex = item_df['regex']
+        self._regex = ""
         self.error_handler = error_handler
 
         # create directory string for directory path to be created
@@ -37,8 +38,7 @@ class WebScraper:
         :return: A singular URL to the download_image function for it to be downloaded and saved to the directory
         """
         response = requests.get(self._WIKI_URL, headers=self._HEADERS)
-        if response.status_code != 200:
-            raise ValueError(f"Failed to find URL '{self._WIKI_URL}'")
+        response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")
 
@@ -62,46 +62,53 @@ class WebScraper:
                     df.to_csv(df_path, index=False)
                     print(f"✅ Saved: {df_path}")
 
+        image_varities = find_image_varities(soup)
 
-        gallery = soup.find_all("img", attrs={"data-image-key": re.compile(f"{self._data_image_key}\d+(-[1-5])?{self._regex}\.png")})
+        for variety in image_varities:
 
-        if not(gallery):
-            raise ValueError(f"Failed to find Images for '{self._data_image_key}'")
+            # set variety to current variety
+            self._regex = variety
 
-        for item in range(self.levels):
-            item_level = item + 1
+            # find all images for that particular variety
+            gallery = soup.find_all("img", attrs={"data-image-key": re.compile(f"{self._data_image_key}\d+(-[1-5])?{self._regex}\.png")})
 
-            # Find all images for item
-            item_images_filtered = filter_images_for_level(gallery, item_level, self._data_image_key, self._regex)
+            if not(gallery):
+                raise ValueError(f"Failed to find Images for '{self._data_image_key}'")
 
-            item_images_filtered = remove_duplicate_images(item_images_filtered)
+            for item in range(self.levels):
+                item_level = item + 1
 
-            # check filtered items list isn't empty
-            if not(item_images_filtered):
-                self.error_handler.add_error(f"Filtered list is empty for '{self._data_image_key}' level {item_level}")
+                # Find all images for item
+                item_images_filtered = filter_images_for_level(gallery, item_level, self._data_image_key, self._regex)
 
-            item_num = 1
+                item_images_filtered = remove_duplicate_images(item_images_filtered)
 
-            for figure in item_images_filtered:
+                # check filtered items list isn't empty
+                if not(item_images_filtered):
+                    self.error_handler.add_error(f"Filtered list is empty for '{self._data_image_key}' level {item_level}")
 
-                # create path for checking whether image exists
-                path_join = os.path.join(self._BASE_DIR,f"{self._data_image_key}_{item_level}{self._regex}", f"{self._data_image_key}_{item_level}_{item_num}{self._regex}.png")
+                item_num = 1
 
-                # check whether image already exists
-                if os.path.isfile(path_join):
-                    print(f"✅ Skipped {self._data_image_key}_{item_level}_{item_num}{self._regex} due to the image already existing")
-                    # increment item number and then skip over item
+                for figure in item_images_filtered:
+
+                    # create path for checking whether image exists
+                    path_join = os.path.join(self._BASE_DIR,f"{self._data_image_key}_{item_level}{self._regex}", f"{self._data_image_key}_{item_level}_{item_num}{self._regex}.png")
+
+                    # check whether image already exists
+                    if os.path.isfile(path_join):
+                        print(f"✅ Skipped {self._data_image_key}_{item_level}_{item_num}{self._regex} due to the image already existing")
+                        # increment item number and then skip over item
+                        item_num += 1
+                        continue
+
+                    if figure and "data-src" in figure.attrs:
+                        img_url = figure["data-src"]
+                        
+                        img_url = img_url.split("/revision")[0]  # Remove unnecessary URL parts
+
+                        download_image_and_data(img_url, item_level, item_num, self._BASE_DIR, self._data_image_key, self._regex)
+
                     item_num += 1
-                    continue
-
-                if figure and "data-src" in figure.attrs:
-                    img_url = figure["data-src"]
-                    
-                    img_url = img_url.split("/revision")[0]  # Remove unnecessary URL parts
-
-                    download_image_and_data(img_url, item_level, item_num, self._BASE_DIR, self._data_image_key, self._regex)
-
-                item_num += 1
             
 
 def scrape_item_images(item_df: pd.DataFrame):
