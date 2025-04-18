@@ -1,17 +1,39 @@
 from bs4 import BeautifulSoup
 import pandas as pd
-import re
 from typing import Dict
+import re
+from utils import clean_cell, clean_text
 
-def get_building_stats(building_name: str, soup: BeautifulSoup) -> Dict[str, pd.DataFrame]:
+def get_building_stats(soup: BeautifulSoup) -> Dict[str, pd.DataFrame]:
     results = {}
     tables = soup.find_all('table', class_='wikitable')
 
     if not tables:
         return results
 
-    # Always include the first table as main stats
-    main_stats = parse_wikitable(tables[0])
+    # Find the first table that has both:
+    # 1. A column containing "Level" (case insensitive)
+    # 2. A column containing "Hitpoints" or "HP" (case insensitive)
+    main_table = None
+    for table in tables:
+        headers = []
+        for th in table.find_all('th'):
+            header = clean_text(th.get_text())
+            if header and header not in headers:
+                headers.append(header)
+        
+        # Check for both Level and Hitpoints/HP columns
+        has_level = any(re.search(r'level', header, re.IGNORECASE) for header in headers)
+        has_hp = any(re.search(r'hitpoints|hp', header, re.IGNORECASE) for header in headers)
+        
+        if has_level and has_hp:
+            main_table = table
+            break
+
+    if not main_table:
+        return results
+
+    main_stats = parse_wikitable(main_table)
     if main_stats.empty:
         return results
 
@@ -20,7 +42,10 @@ def get_building_stats(building_name: str, soup: BeautifulSoup) -> Dict[str, pd.
 
     variation_count = 1  # For generic naming: Variation 1, 2, etc.
 
-    for table in tables[1:]:
+    # Get the index of the main table to only process tables after it
+    main_table_index = tables.index(main_table)
+    
+    for table in tables[main_table_index + 1:]:
         df = parse_wikitable(table)
         if df.empty or len(df) != expected_row_count:
             continue  # Skip tables that don't match the main row count
@@ -59,29 +84,19 @@ def parse_wikitable(table) -> pd.DataFrame:
     df = pd.DataFrame(rows, columns=headers)
     df.columns = [clean_text(col) for col in df.columns]
 
-    if 'Level' in df.columns:
+    # Find any column that contains "level" (case insensitive)
+    level_col = None
+    for col in df.columns:
+        if re.search(r'level', col, re.IGNORECASE):
+            level_col = col
+            break
+
+    if level_col:
+        # Rename the level column to 'Level' for consistency
+        if level_col != 'Level':
+            df = df.rename(columns={level_col: 'Level'})
+        # Move Level column to first position
         cols = ['Level'] + [col for col in df.columns if col != 'Level']
         return df[cols]
-    elif 'level' in (col.lower() for col in df.columns):
-        level_col = next(col for col in df.columns if 'level' in col.lower())
-        df = df.rename(columns={level_col: 'Level'})
-        return df[['Level'] + [col for col in df.columns if col != 'Level']]
+    
     return df
-
-def clean_text(text: str) -> str:
-    """Clean wiki text formatting"""
-    return re.sub(r'\[.*?\]|Edit|\.|\u200e|\u202f', '', text).strip()
-
-def clean_cell(text: str):
-    """Clean and convert cell values"""
-    text = clean_text(text)
-    if text.replace(',', '').replace('.', '').isdigit():
-        return float(text.replace(',', '')) if '.' in text else int(text.replace(',', ''))
-    if text.endswith('%'):
-        try:
-            return float(text[:-1]) / 100
-        except ValueError:
-            pass
-    if text.lower() in ('n/a', '?', '-', '', 'none'):
-        return None
-    return text
