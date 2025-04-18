@@ -42,7 +42,10 @@ def download_item_images_and_data(item_df):
         df = pd.read_csv(df_path)
         levels = get_max_level(df)
     else:
-        stats = get_building_stats(soup)
+        if data_image_key == "Giga_Tesla":
+            stats = get_building_stats(soup, True)
+        else:
+            stats = get_building_stats(soup)
         if not(stats):
             raise ValueError(f"Failed to find data for '{data_image_key}'")
         for key in stats.keys():
@@ -57,6 +60,9 @@ def download_item_images_and_data(item_df):
                 df.to_csv(df_path, index=False)
                 print(f"✅ Saved: {df_path}")
 
+
+    if data_image_key == "X-Bow":
+        pass
     image_varities = find_image_varities(soup)
 
     for variety in image_varities:
@@ -68,7 +74,8 @@ def download_item_images_and_data(item_df):
         gallery = soup.find_all("img", attrs={"data-image-key": re.compile(f"{data_image_key}\d+(-[1-5])?{regex}\.png")})
 
         if not(gallery):
-            raise ValueError(f"Failed to find Images for '{data_image_key}'")
+            print(f"❌ Failed to find Images for '{data_image_key}{regex}'")
+            continue
 
         for item in range(levels):
             item_level = item + 1

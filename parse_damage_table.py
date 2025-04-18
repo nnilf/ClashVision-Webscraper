@@ -4,7 +4,7 @@ from typing import Dict
 import re
 from utils import clean_cell, clean_text
 
-def get_building_stats(soup: BeautifulSoup) -> Dict[str, pd.DataFrame]:
+def get_building_stats(soup: BeautifulSoup , first_table = False) -> Dict[str, pd.DataFrame]:
     results = {}
     tables = soup.find_all('table', class_='wikitable')
 
@@ -14,21 +14,24 @@ def get_building_stats(soup: BeautifulSoup) -> Dict[str, pd.DataFrame]:
     # Find the first table that has both:
     # 1. A column containing "Level" (case insensitive)
     # 2. A column containing "Hitpoints" or "HP" (case insensitive)
-    main_table = None
-    for table in tables:
-        headers = []
-        for th in table.find_all('th'):
-            header = clean_text(th.get_text())
-            if header and header not in headers:
-                headers.append(header)
-        
-        # Check for both Level and Hitpoints/HP columns
-        has_level = any(re.search(r'level', header, re.IGNORECASE) for header in headers)
-        has_hp = any(re.search(r'hitpoints|hp', header, re.IGNORECASE) for header in headers)
-        
-        if has_level and has_hp:
-            main_table = table
-            break
+    if not first_table:
+        main_table = None
+        for table in tables:
+            headers = []
+            for th in table.find_all('th'):
+                header = clean_text(th.get_text())
+                if header and header not in headers:
+                    headers.append(header)
+            
+            # Check for both Level and Hitpoints/HP columns
+            has_level = any(re.search(r'level', header, re.IGNORECASE) for header in headers)
+            has_hp = any(re.search(r'hitpoints|hp', header, re.IGNORECASE) for header in headers)
+            
+            if has_level and has_hp:
+                main_table = table
+                break
+    else:
+        main_table = tables[0]
 
     if not main_table:
         return results

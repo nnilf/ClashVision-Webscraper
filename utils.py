@@ -36,7 +36,11 @@ def remove_duplicate_images(img_elements):
 def get_max_level(df: pd.DataFrame) -> int:
     """Returns the highest level of a building using stats table dataframe"""
     max_level = df["Level"][len(df)-1]
-    return int(max_level)
+    # Convert to string if not already
+    str_value = str(max_level)
+    # Match one or more digits at start of string
+    match = re.match(r'^(\d+)', str_value)
+    return int(match.group(1))
 
 
 # Filtering function
@@ -47,6 +51,7 @@ def is_clean_tag(tag):
     max_length = 10  # arbitrary limit to skip overly long tags
 
     tag_lower = tag.lower()
+    print(f'TAG {tag_lower}')
     if len(tag) > max_length:
         return False
     if any(kw in tag_lower for kw in blacklist_keywords):
@@ -76,7 +81,7 @@ def clean_cell(text: str):
 
 def find_image_varities(soup: BeautifulSoup):
     # Regex to pull out building name and extras
-    pattern = re.compile("^[A-Za-z_]+[0-9]+(.*?)(?:-[1-5])?\.png$", re.IGNORECASE)
+    pattern = re.compile(r"^[A-Za-z_-]+[0-9]+(.*?)(?:-[1-5])?\.png$", re.IGNORECASE)
 
     # Prepare output
     results = []
