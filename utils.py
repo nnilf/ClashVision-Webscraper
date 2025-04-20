@@ -52,7 +52,7 @@ def is_clean_tag(tag):
     """Cleans the variations down to only ones that are actual image variations"""
 
     # Define exclusion keywords
-    blacklist_keywords = ["pre", "info", "archive", "old", "retired", "test"]
+    blacklist_keywords = ["pre", "info", "archive", "old", "retired", "test", "h", "jap"]
     max_length = 10  # arbitrary limit to skip overly long tags
 
     tag_lower = tag.lower()
