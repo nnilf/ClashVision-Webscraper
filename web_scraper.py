@@ -9,6 +9,36 @@ import time
 from utils import filter_images_for_level, remove_duplicate_images, get_max_level, find_image_varities
 from parse_damage_table import get_building_stats
 
+
+def save_data(soup: BeautifulSoup, BASE_DIR, data_image_key: str):
+    df_path =  os.path.join(BASE_DIR, f"{data_image_key}_data.csv")
+
+    if os.path.isfile(df_path):
+        print(f"✅ Skipped {data_image_key} data, due to it already existing")
+        df = pd.read_csv(df_path)
+        levels = get_max_level(df)
+    else:
+        if data_image_key == "Giga_Tesla":
+            stats = get_building_stats(soup, True)
+        else:
+            stats = get_building_stats(soup)
+        if not(stats):
+            raise ValueError(f"Failed to find data for '{data_image_key}'")
+        for key in stats.keys():
+            if key == "Main Stats":
+                df = stats[key]
+                levels = get_max_level(df)
+                df.to_csv(df_path, index=False)
+                print(f"✅ Saved: {df_path}")
+            else:
+                key_text = key.replace(" ", "_")
+                df_path = os.path.join(BASE_DIR, f"{data_image_key}_{key_text}_data.csv")
+                df.to_csv(df_path, index=False)
+                print(f"✅ Saved: {df_path}")
+        
+    return levels
+
+
 def download_item_images_and_data(item_df):
     """
     Downloads images of all levels of a particular building and filters it into levels.
@@ -35,31 +65,7 @@ def download_item_images_and_data(item_df):
 
     soup = BeautifulSoup(response.text, "html.parser")
 
-    df_path =  os.path.join(BASE_DIR, f"{data_image_key}_data.csv")
-
-    if os.path.isfile(df_path):
-        print(f"✅ Skipped {data_image_key} data, due to it already existing")
-        df = pd.read_csv(df_path)
-        levels = get_max_level(df)
-    else:
-        if data_image_key == "Giga_Tesla":
-            stats = get_building_stats(soup, True)
-        else:
-            stats = get_building_stats(soup)
-        if not(stats):
-            raise ValueError(f"Failed to find data for '{data_image_key}'")
-        for key in stats.keys():
-            if key == "Main Stats":
-                df = stats[key]
-                levels = get_max_level(df)
-                df.to_csv(df_path, index=False)
-                print(f"✅ Saved: {df_path}")
-            else:
-                key_text = key.replace(" ", "_")
-                df_path = os.path.join(BASE_DIR, f"{data_image_key}_{key_text}_data.csv")
-                df.to_csv(df_path, index=False)
-                print(f"✅ Saved: {df_path}")
-
+    levels = save_data(soup, BASE_DIR, data_image_key)
 
     if data_image_key == "X-Bow":
         pass
