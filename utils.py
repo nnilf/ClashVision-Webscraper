@@ -4,14 +4,16 @@ import pandas as pd
 from bs4 import BeautifulSoup
 
 def filter_images_for_level(img_elements, level, data_image_key, regex):
-    """
-    Filters <img> elements to only include those images from that particular building level.
+    """Filters <img> elements to only include those images from that particular building level.
 
-    :param img_elements: List of image elements.
-    :param level: Level that is wanted to be retrieved.
-    :param data_image_key: data image key for the current building
-    :param regex: any extra regex required for defining specific building types
-    :return: List of image elements that match that particular level.
+        Args:
+            img_elements: List of image elements.
+            level: Level of building that is requested to be retrieved
+            data_image_key: building title
+            regex: any extra regex required for defining specific building types
+
+        Returns:
+            List of chosen levels img elements
     """
     pattern = re.compile(f"{data_image_key}{level}(-[1-5])?{regex}\.png")
 
@@ -22,11 +24,13 @@ def filter_images_for_level(img_elements, level, data_image_key, regex):
 
 
 def remove_duplicate_images(img_elements):
-    """
-    Removes duplicate image elements based on their 'data-image-key' attribute using regex masks.
+    """Removes duplicate image elements based on their 'data-image-key' attribute using regex masks.
 
-    :param img_elements: List of image elements.
-    :return: List of unique image elements.
+        Args:
+            img_elements: List of image elements.
+
+        Returns:
+            unique_imgs: List of unique image elements.
     """
     unique_imgs = list({img['data-image-key'].strip(): img for img in img_elements if isinstance(img, Tag) and img.has_attr('data-image-key')}.values())
 
@@ -45,6 +49,7 @@ def get_max_level(df: pd.DataFrame) -> int:
 
 # Filtering function
 def is_clean_tag(tag):
+    """Cleans the variations down to only ones that are actual image variations"""
 
     # Define exclusion keywords
     blacklist_keywords = ["pre", "info", "archive", "old", "retired", "test"]
@@ -80,6 +85,7 @@ def clean_cell(text: str):
 
 
 def find_image_varities(soup: BeautifulSoup):
+    """Finds the image variations available using img tags, filtering down into a list of extras"""
     # Regex to pull out building name and extras
     pattern = re.compile(r"^[A-Za-z_-]+[0-9]+(.*?)(?:-[1-5])?\.png$", re.IGNORECASE)
 

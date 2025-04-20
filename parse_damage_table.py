@@ -5,6 +5,16 @@ import re
 from utils import clean_cell, clean_text
 
 def get_building_stats(soup: BeautifulSoup , first_table = False) -> Dict[str, pd.DataFrame]:
+    """gets building stats table and stores in df, including storing any variations data
+
+        Args:
+            soup: BeautifulSoup element containing html of page
+            first_table: whether it can be assumed the first table is the data table
+
+        Returns:
+            results: dictionary of df, for main stats and variations for building
+    """
+
     results = {}
     tables = soup.find_all('table', class_='wikitable')
 
